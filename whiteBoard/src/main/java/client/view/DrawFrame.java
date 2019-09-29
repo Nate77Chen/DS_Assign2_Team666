@@ -1,13 +1,19 @@
 package client.view;
 
+import org.json.JSONObject;
+import org.json.JSONTokener;
+
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
 import java.awt.event.*;
 import java.awt.image.BufferedImage;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.net.Socket;
 
 public class DrawFrame extends JFrame{
     private int x1,y1,x2,y2;
@@ -60,9 +66,14 @@ public class DrawFrame extends JFrame{
     private boolean isBrush = false;
     private boolean isText = false;
 
+    //Declare connection
+    private Socket socket;
+    private DataOutputStream writer;
+    private DataInputStream reader;
 
 
-    public DrawFrame(){
+
+    public DrawFrame(Socket socket, DataOutputStream writer, DataInputStream reader){
         super();
         setTitle("Online Draw Canvas");
         setBounds(0,0,1024,768);
@@ -71,6 +82,11 @@ public class DrawFrame extends JFrame{
         init();
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setVisible(true);
+
+        //Connection passed using socket
+        this.socket = socket;
+        this.writer = writer;
+        this.reader= reader;
 
     }
 
@@ -189,6 +205,28 @@ public class DrawFrame extends JFrame{
                 if(isBrush){
                     x2 = e.getX();
                     y2 = e.getY();
+
+                    //JSON Message contains messages of
+                    // operation: (indicates which function is in used)
+                    // x1,y1,x2,y2:indicates the axis
+                    //
+                    try {
+                        System.out.println("I am going to send message");
+
+                        //Writing the JSONObject information
+                        JSONObject info = new JSONObject();
+                        info.put("operation", "brush");
+                        info.put("x2", x2);
+                        info.put("y2", y2);
+                        info.put("x1",x1);
+                        info.put("y1",y1);
+                        writer.writeUTF(info.toString());
+                    }catch (IOException e1){
+                        System.out.println("some mistakes");
+                    }
+
+                    //Here should have another function which draw the graph according to the message send from server
+
                     graphics2D.setColor(forecolor);
                     graphics2D.drawLine(x1,y1,x2,y2);
                 }
@@ -361,21 +399,48 @@ public class DrawFrame extends JFrame{
 
     }
 
+    //This method is to draw line based on the received message
 
+    public void drawLine(int x1, int x2, int y1, int y2){
+        graphics2D.setColor(forecolor);
+        graphics2D.drawLine(x1,y1,x2,y2);
 
-
-    public static void main(String[] args) {
-        // TODO Auto-generated method stub
-        EventQueue.invokeLater(new Runnable()
-        {
-            public void run()
-            {
-                DrawFrame test = new DrawFrame();
-
-
-            }
-
-        });
     }
+
+    //This method is designed to receive message from server, and perform different actions.
+    // Only draw line has been done for now
+
+    public void run(String message){
+
+
+        JSONObject new_draw = new JSONObject(new JSONTokener(message));
+        String operation = new_draw.getString("operation");
+        if(operation.equals("brush")){
+            int x1 = Integer.parseInt(new_draw.getString("x1"));
+            int x2 = Integer.parseInt(new_draw.getString("x2"));
+            int y1 = Integer.parseInt(new_draw.getString("y1"));
+            int y2 = Integer.parseInt(new_draw.getString("y2"));
+            drawLine(x1,x2,y1,y2);
+
+        }
+
+    }
+
+
+
+
+//    public static void main(String[] args) {
+//        // TODO Auto-generated method stub
+//        EventQueue.invokeLater(new Runnable()
+//        {
+//            public void run()
+//            {
+//                DrawFrame test = new DrawFrame();
+//
+//
+//            }
+//
+//        });
+//    }
 
     }
